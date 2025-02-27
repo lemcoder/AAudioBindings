@@ -1,0 +1,24 @@
+plugins {
+    alias(libs.plugins.android.library)
+}
+
+group = 'io.github.lemcoder'
+version = '0.0.1'
+
+android {
+    compileSdk libs.versions.android.compileSdk.get().toInteger()
+    namespace 'io.github.lemcoder.mikroaall'
+
+    defaultConfig {
+        minSdkVersion libs.versions.android.minSdk.get().toInteger()
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    dependencies {
+        implementation libs.panama.port
+    }
+}
