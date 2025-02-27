@@ -29,13 +29,14 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static MemorySegment AAudioCreateStreamBuilder() throws Throwable {
+    public static Pointer AAudioCreateStreamBuilder() throws Throwable {
         MemorySegment ptr = ARENA.allocate(C_POINTER);
         int result = (int) AAudio_createStreamBuilder.invokeExact(ptr);
         if (result != AAudioResult.OK.getValue()) {
             throw new RuntimeException("Failed to create AAudio stream builder: " + result);
         }
-        return ptr;
+
+        return new Pointer(ptr.get(ValueLayout.ADDRESS, 0).address());
     }
     // <------------------------------------------------------------->
 
@@ -45,10 +46,9 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_INT)
     );
 
-    static void AAudioStreamBuilderSetFormat(MemorySegment builder, AAudioFormat format) throws Throwable {
+    public static void AAudioStreamBuilderSetFormat(Pointer builder, AAudioFormat format) throws Throwable {
         // dereference the pointer
-        MemorySegment builderAddress = builder.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pBuilder = MemorySegment.ofAddress(builderAddress.address());
+        MemorySegment pBuilder = MemorySegment.ofAddress(builder.getAddress());
 
         AAudioStreamBuilder_setFormat.invokeExact(pBuilder, format.getValue());
     }
@@ -60,10 +60,9 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_INT)
     );
 
-    static void AAudioStreamBuilderSetSampleRate(MemorySegment builder, int sampleRate) throws Throwable {
+    public static void AAudioStreamBuilderSetSampleRate(Pointer builder, int sampleRate) throws Throwable {
         // dereference the pointer
-        MemorySegment builderAddress = builder.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pBuilder = MemorySegment.ofAddress(builderAddress.address());
+        MemorySegment pBuilder = MemorySegment.ofAddress(builder.getAddress());
 
         AAudioStreamBuilder_setSampleRate.invokeExact(pBuilder, sampleRate);
     }
@@ -75,10 +74,9 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_INT)
     );
 
-    static void AAudioStreamBuilderSetChannelCount(MemorySegment builder, int channelCount) throws Throwable {
+    public static void AAudioStreamBuilderSetChannelCount(Pointer builder, int channelCount) throws Throwable {
         // dereference the pointer
-        MemorySegment builderAddress = builder.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pBuilder = MemorySegment.ofAddress(builderAddress.address());
+        MemorySegment pBuilder = MemorySegment.ofAddress(builder.getAddress());
 
         AAudioStreamBuilder_setChannelCount.invokeExact(pBuilder, channelCount);
     }
@@ -90,10 +88,9 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_INT)
     );
 
-    static void AAudioStreamBuilderSetDirection(MemorySegment builder, AAudioAudioDirection direction) throws Throwable {
+    public static void AAudioStreamBuilderSetDirection(Pointer builder, AAudioAudioDirection direction) throws Throwable {
         // dereference the pointer
-        MemorySegment builderAddress = builder.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pBuilder = MemorySegment.ofAddress(builderAddress.address());
+        MemorySegment pBuilder = MemorySegment.ofAddress(builder.getAddress());
 
         AAudioStreamBuilder_setDirection.invokeExact(pBuilder, direction.getValue());
     }
@@ -106,10 +103,9 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_INT)
     );
 
-    static void AAudioStreamBuilderSetPerformanceMode(MemorySegment builder, AAudioPerformanceMode mode) throws Throwable {
+    public static void AAudioStreamBuilderSetPerformanceMode(Pointer builder, AAudioPerformanceMode mode) throws Throwable {
         // dereference the pointer
-        MemorySegment builderAddress = builder.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pBuilder = MemorySegment.ofAddress(builderAddress.address());
+        MemorySegment pBuilder = MemorySegment.ofAddress(builder.getAddress());
 
         AAudioStreamBuilder_setPerformanceMode.invokeExact(pBuilder, mode.getValue());
     }
@@ -121,13 +117,8 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_POINTER, C_POINTER)
     );
 
-    public static int callback() {
-        System.out.println("Callback called");
-        return 0;
-    }
-
     // TODO: Implement callback
-    static void AAudioStreamBuilderSetDataCallback(MemorySegment builder, AAudioStreamDataCallbackApi callback) throws Throwable {
+    public static void AAudioStreamBuilderSetDataCallback(Pointer builder, AAudioStreamDataCallbackApi callback) throws Throwable {
         MethodHandle onCallback = MethodHandles.lookup().findStatic(AAudio.class, "callback", MethodType.methodType(int.class));
         // Create a stub as a native symbol to be passed into native function.
         AAudioStreamDataCallbackInternal callbackInternal = (stream, userData, audioData, numFrames) -> {
@@ -145,8 +136,8 @@ public class AAudio {
             // Ensure we don't copy beyond available space
             int copySize = Math.min(data.length, expectedSize);
 
-            System.out.println("Expected size: " + expectedSize + ", Data size: " + data.length + ", Copying: " + copySize);
-            System.out.println("audioData size: " + audioData.byteSize() + ", Expected: " + expectedSize);
+//            System.out.println("Expected size: " + expectedSize + ", Data size: " + data.length + ", Copying: " + copySize);
+//            System.out.println("audioData size: " + audioData.byteSize() + ", Expected: " + expectedSize);
 
 
             // Copy only valid data
@@ -164,8 +155,7 @@ public class AAudio {
         MemorySegment nullPtr = MemorySegment.ofAddress(0);
 
         // dereference the pointer
-        MemorySegment builderAddress = builder.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pBuilder = MemorySegment.ofAddress(builderAddress.address());
+        MemorySegment pBuilder = MemorySegment.ofAddress(builder.getAddress());
 
         AAudioStreamBuilder_setDataCallback.invokeExact(pBuilder, pCallback, nullPtr);
     }
@@ -198,10 +188,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER, C_POINTER)
     );
 
-    static MemorySegment AAudioStreamBuilderOpenStream(MemorySegment builder) throws Throwable {
+    public static Pointer AAudioStreamBuilderOpenStream(Pointer builder) throws Throwable {
         // dereference the pointer
-        MemorySegment builderAddress = builder.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pBuilder = MemorySegment.ofAddress(builderAddress.address());
+        MemorySegment pBuilder = MemorySegment.ofAddress(builder.getAddress());
         // allocate a pointer to store the stream
         MemorySegment ptr = ARENA.allocate(C_POINTER);
 
@@ -209,7 +198,7 @@ public class AAudio {
         if (result != AAudioResult.OK.getValue()) {
             throw new RuntimeException("Failed to open stream: " + result);
         }
-        return ptr;
+        return new Pointer(ptr.get(ValueLayout.ADDRESS, 0).address());
     }
     // <------------------------------------------------------------->
 
@@ -219,10 +208,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static AAudioFormat AAudioStreamGetFormat(MemorySegment stream) throws Throwable {
+    public static AAudioFormat AAudioStreamGetFormat(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return AAudioFormat.fromValue((int) AAudioStream_getFormat.invokeExact(pStream));
     }
@@ -234,10 +222,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static int AAudioStreamGetChannelCount(MemorySegment stream) throws Throwable {
+    public static int AAudioStreamGetChannelCount(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return (int) AAudioStream_getChannelCount.invokeExact(pStream);
     }
@@ -251,10 +238,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static int AAudioStreamGetHardwareChannelCount(MemorySegment stream) throws Throwable {
+    public static int AAudioStreamGetHardwareChannelCount(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return (int) AAudioStream_getHardwareChannelCount.invokeExact(pStream);
     }
@@ -269,10 +255,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static int AAudioStreamGetDeviceId(MemorySegment stream) throws Throwable {
+    public static int AAudioStreamGetDeviceId(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return (int) AAudioStream_getDeviceId.invokeExact(pStream);
     }
@@ -286,10 +271,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static AAudioAudioDirection AAudioStreamGetDirection(MemorySegment stream) throws Throwable {
+    public static AAudioAudioDirection AAudioStreamGetDirection(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return AAudioAudioDirection.fromValue((int) AAudioStream_getDirection.invokeExact(pStream));
     }
@@ -302,10 +286,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static AAudioPerformanceMode AAudioStreamGetPerformanceMode(MemorySegment stream) throws Throwable {
+    public static AAudioPerformanceMode AAudioStreamGetPerformanceMode(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return AAudioPerformanceMode.fromValue((int) AAudioStream_getPerformanceMode.invokeExact(pStream));
     }
@@ -319,10 +302,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static int AAudioStreamGetSampleRate(MemorySegment stream) throws Throwable {
+    public static int AAudioStreamGetSampleRate(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return (int) AAudioStream_getSampleRate.invokeExact(pStream);
     }
@@ -336,10 +318,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static int AAudioStreamGetHardwareSampleRate(MemorySegment stream) throws Throwable {
+    public static int AAudioStreamGetHardwareSampleRate(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return (int) AAudioStream_getHardwareSampleRate.invokeExact(pStream);
     }
@@ -353,10 +334,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static AAudioStreamState AAudioStreamGetState(MemorySegment stream) throws Throwable {
+    public static AAudioStreamState AAudioStreamGetState(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return AAudioStreamState.fromValue((int) AAudioStream_getState.invokeExact(pStream));
     }
@@ -371,10 +351,9 @@ public class AAudio {
             FunctionDescriptor.of(C_INT, C_POINTER)
     );
 
-    static AAudioResult AAudioStreamRequestStart(MemorySegment stream) throws Throwable {
+    public static AAudioResult AAudioStreamRequestStart(Pointer stream) throws Throwable {
         // dereference the pointer
-        MemorySegment streamAddress = stream.get(ValueLayout.ADDRESS, 0);
-        MemorySegment pStream = MemorySegment.ofAddress(streamAddress.address());
+        MemorySegment pStream = MemorySegment.ofAddress(stream.getAddress());
 
         return AAudioResult.fromValue((int) AAudioStream_requestStart.invokeExact(pStream));
     }
