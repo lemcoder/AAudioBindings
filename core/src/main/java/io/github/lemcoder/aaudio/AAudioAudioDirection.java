@@ -1,4 +1,4 @@
-package io.github.lemcoder.mikroaall;
+package io.github.lemcoder.aaudio;
 
 public enum AAudioAudioDirection {
     OUTPUT(0),
@@ -14,7 +14,7 @@ public enum AAudioAudioDirection {
         return value;
     }
 
-    static AAudioAudioDirection fromValue(int value) {
+    public static AAudioAudioDirection fromValue(int value) {
         for (AAudioAudioDirection direction : AAudioAudioDirection.values()) {
             if (direction.getValue() == value) {
                 return direction;

@@ -1,4 +1,4 @@
-package io.github.lemcoder.mikroaall;
+package io.github.lemcoder.aaudio.audioSystem;
 
 import com.v7878.foreign.*;
 import java.lang.invoke.MethodHandle;

@@ -1,4 +1,4 @@
-package io.github.lemcoder.mikroaall;
+package io.github.lemcoder.aaudio;
 
 public enum AAudioDataCallbackResult {
     /**
