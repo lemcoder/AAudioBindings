@@ -19,25 +19,30 @@ android {
         targetCompatibility JavaVersion.VERSION_21
     }
 
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+
     dependencies {
-        implementation libs.panama.port
+        implementation(libs.panama.port)
     }
 }
 
-project.afterEvaluate {
-    publishing {
-        publications {
-            // Define the publication to use the `Aar` format for Android libraries
-            aar(MavenPublication) {
-                setGroupId 'io.github.lemcoder'
-                setArtifactId 'mikroaall'
-                version '0.0.1'
-                artifact bundleReleaseAar
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId project.group
+            artifactId 'mikroaall'
+            version project.version
+            afterEvaluate {
+                from components.release
             }
         }
+    }
 
-        repositories {
-            mavenLocal()
-        }
+    repositories {
+        mavenLocal()
     }
 }

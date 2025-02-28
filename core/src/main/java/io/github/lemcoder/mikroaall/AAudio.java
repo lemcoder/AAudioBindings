@@ -117,9 +117,7 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_POINTER, C_POINTER)
     );
 
-    // TODO: Implement callback
     public static void AAudioStreamBuilderSetDataCallback(Pointer builder, AAudioStreamDataCallbackApi callback) throws Throwable {
-        MethodHandle onCallback = MethodHandles.lookup().findStatic(AAudio.class, "callback", MethodType.methodType(int.class));
         // Create a stub as a native symbol to be passed into native function.
         AAudioStreamDataCallbackInternal callbackInternal = (stream, userData, audioData, numFrames) -> {
             if (audioData == null || audioData.equals(MemorySegment.NULL) || audioData.byteSize() == 0) {
