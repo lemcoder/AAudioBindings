@@ -1,26 +1,11 @@
 package io.github.lemcoder.aaudio.audioSystem;
 
-import com.v7878.foreign.*;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+import com.v7878.foreign.AddressLayout;
+import com.v7878.foreign.Linker;
+import com.v7878.foreign.MemoryLayout;
+import com.v7878.foreign.ValueLayout;
 
 class NativeHelper {
-    public static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
-
-    public static boolean isIntegral(MemoryLayout layout) {
-        return layout instanceof ValueLayout valueLayout && isIntegral(valueLayout.carrier());
-    }
-
-    static boolean isIntegral(Class<?> clazz) {
-        return clazz == byte.class || clazz == char.class || clazz == short.class
-                || clazz == int.class || clazz == long.class;
-    }
-
-    public static boolean isPointer(MemoryLayout layout) {
-        return layout instanceof ValueLayout valueLayout && valueLayout.carrier() == MemorySegment.class;
-    }
 
     public static final Linker LINKER = Linker.nativeLinker();
 
@@ -51,7 +36,8 @@ class NativeHelper {
     /**
      * The layout for the {@code long long} C type.
      */
-    public static final ValueLayout.OfLong C_LONG = (ValueLayout.OfLong) LINKER.canonicalLayouts().get("long");
+    // Note: Depending on the bit depth of the system, the long type from the C language can be equivalent to JAVA_INT or JAVA_LONG
+    public static final ValueLayout C_LONG = (ValueLayout.OfLong) LINKER.canonicalLayouts().get("long");
 
     /**
      * The layout for the {@code float} C type
@@ -69,61 +55,6 @@ class NativeHelper {
     /**
      * The layout for the {@code size_t} C type
      */
+    // Note: Depending on the bit depth of the system, the size_t type from the C language can be equivalent to JAVA_INT or JAVA_LONG
     public static final ValueLayout C_SIZE_T = (ValueLayout) LINKER.canonicalLayouts().get("size_t");
-
-    private static final MethodHandle FREE = LINKER.downcallHandle(
-            LINKER.defaultLookup().find("free").get(), FunctionDescriptor.ofVoid(C_POINTER));
-
-    private static final MethodHandle MALLOC = LINKER.downcallHandle(
-            LINKER.defaultLookup().find("malloc").get(), FunctionDescriptor.of(C_POINTER, C_LONG_LONG));
-
-    public static void freeMemory(MemorySegment address) {
-        try {
-            FREE.invokeExact(address);
-        } catch (Throwable ex) {
-            throw new IllegalStateException(ex);
-        }
-    }
-
-    public static MemorySegment allocateMemory(long size) {
-        try {
-            return (MemorySegment) MALLOC.invokeExact(size);
-        } catch (Throwable ex) {
-            throw new IllegalStateException(ex);
-        }
-    }
-
-    public static MemorySegment findNativeOrThrow(String name) {
-        return SymbolLookup.loaderLookup().find(name).orElseThrow();
-    }
-
-    public static MethodHandle downcallHandle(String symbol, FunctionDescriptor desc, Linker.Option... options) {
-        return LINKER.downcallHandle(findNativeOrThrow(symbol), desc, options);
-    }
-
-    public static MemorySegment upcallStub(Class<?> holder, String name, FunctionDescriptor descriptor) {
-        return upcallStub(holder, name, descriptor, Arena.ofAuto());
-    }
-
-    public static MemorySegment upcallStub(Class<?> holder, String name, FunctionDescriptor descriptor, Arena arena) {
-        try {
-            MethodHandle target = MethodHandles.lookup().findStatic(holder, name, descriptor.toMethodType());
-            return LINKER.upcallStub(target, descriptor, arena);
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Object saver(Object[] o, List<MemoryLayout> argLayouts, AtomicReference<Object[]> ref, SegmentAllocator allocator, int retArg) {
-        for (int i = 0; i < o.length; i++) {
-            if (argLayouts.get(i) instanceof GroupLayout gl) {
-                MemorySegment ms = (MemorySegment) o[i];
-                MemorySegment copy = allocator.allocate(gl);
-                copy.copyFrom(ms);
-                o[i] = copy;
-            }
-        }
-        ref.set(o);
-        return retArg != -1 ? o[retArg] : null;
-    }
 }
