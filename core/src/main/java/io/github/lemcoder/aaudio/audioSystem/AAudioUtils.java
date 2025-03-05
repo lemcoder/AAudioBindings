@@ -10,11 +10,8 @@ import com.v7878.foreign.SymbolLookup;
 
 import java.lang.invoke.MethodHandle;
 
-import io.github.lemcoder.aaudio.AAudioAudioDirection;
-import io.github.lemcoder.aaudio.AAudioFormat;
-import io.github.lemcoder.aaudio.AAudioPerformanceMode;
-import io.github.lemcoder.aaudio.AAudioResult;
-import io.github.lemcoder.aaudio.AAudioStreamState;
+import io.github.lemcoder.aaudio.model.AAudioResult;
+import io.github.lemcoder.aaudio.model.AAudioStreamState;
 
 
 public class AAudioUtils {

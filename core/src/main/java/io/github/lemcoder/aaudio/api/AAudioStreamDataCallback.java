@@ -1,6 +1,6 @@
 package io.github.lemcoder.aaudio.api;
 
 @FunctionalInterface
-public interface AAudioStreamDataCallbackApi {
+public interface AAudioStreamDataCallback {
     byte[] onData(int numFrames);
 }

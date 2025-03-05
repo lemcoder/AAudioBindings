@@ -1,4 +1,4 @@
-package io.github.lemcoder.aaudio;
+package io.github.lemcoder.aaudio.model;
 
 /**
  * Use this for streaming media, music performance, video, podcasts, etcetera.

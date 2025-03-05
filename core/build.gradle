@@ -8,7 +8,7 @@ version = '0.0.1'
 
 android {
     compileSdk libs.versions.android.compileSdk.get().toInteger()
-    namespace 'io.github.lemcoder.mikroaall'
+    namespace 'io.github.lemcoder.aaudio'
 
     defaultConfig {
         minSdkVersion libs.versions.android.minSdk.get().toInteger()
@@ -34,7 +34,7 @@ publishing {
     publications {
         release(MavenPublication) {
             groupId project.group
-            artifactId 'mikroaall'
+            artifactId 'aaudio-bindings'
             version project.version
             afterEvaluate {
                 from components.release

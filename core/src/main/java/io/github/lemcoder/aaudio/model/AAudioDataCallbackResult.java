@@ -1,6 +1,6 @@
-package io.github.lemcoder.aaudio;
+package io.github.lemcoder.aaudio.model;
 
-public enum AAudioCallbackResult {
+public enum AAudioDataCallbackResult {
     /**
      * Continue calling the callback.
      */
@@ -8,6 +8,7 @@ public enum AAudioCallbackResult {
 
     /**
      * Stop calling the callback.
+     *
      * The application will still need to call AAudioStream_requestPause()
      * or AAudioStream_requestStop().
      */
@@ -15,20 +16,11 @@ public enum AAudioCallbackResult {
 
     private final int value;
 
-    AAudioCallbackResult(int value) {
+    AAudioDataCallbackResult(int value) {
         this.value = value;
     }
 
     public int getValue() {
         return value;
-    }
-
-    static AAudioCallbackResult fromValue(int value) {
-        for (AAudioCallbackResult result : AAudioCallbackResult.values()) {
-            if (result.getValue() == value) {
-                return result;
-            }
-        }
-        return null;
     }
 }

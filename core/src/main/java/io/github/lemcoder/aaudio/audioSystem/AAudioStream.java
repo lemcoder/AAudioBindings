@@ -1,24 +1,29 @@
 package io.github.lemcoder.aaudio.audioSystem;
 
-import com.v7878.foreign.Arena;
-import com.v7878.foreign.FunctionDescriptor;
-import com.v7878.foreign.MemorySegment;
-import com.v7878.foreign.SymbolLookup;
-import io.github.lemcoder.aaudio.*;
+import com.v7878.foreign.*;
+import io.github.lemcoder.aaudio.model.*;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.github.lemcoder.aaudio.audioSystem.NativeHelper.*;
 
 public class AAudioStream implements AutoCloseable {
-    private static final Arena lifetimeArena = Arena.ofShared();
-    private final MemorySegment nativeInstance;
+    protected final Arena lifetimeArena = Arena.ofShared();
+    private MemorySegment nativeInstance;
 
-    protected AAudioStream(MemorySegment nativeInstance) {
-        MemorySegment streamMemory = lifetimeArena.allocate(nativeInstance.byteSize());
-        streamMemory.copyFrom(nativeInstance);
+    protected AAudioStream() {
 
-        this.nativeInstance = streamMemory; // Store the actual stream, not just the pointer
+    }
+
+    protected void open(AAudioStreamBuilder builder) throws Throwable {
+        try {
+            MemorySegment ptr = lifetimeArena.allocate(C_POINTER);
+            builder.openStream(ptr);
+            this.nativeInstance = ptr.get(ValueLayout.ADDRESS, 0);
+        } catch (Throwable t) {
+            close();
+            throw t;
+        }
     }
 
     /**

@@ -1,8 +1,8 @@
 package io.github.lemcoder.aaudio.api;
 
-import io.github.lemcoder.aaudio.AAudioResult;
+import io.github.lemcoder.aaudio.model.AAudioResult;
 
 @FunctionalInterface
-public interface AAudioErrorCallbackApi {
+public interface AAudioErrorCallback {
     void onError(AAudioResult error);
 }

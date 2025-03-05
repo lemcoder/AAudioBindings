@@ -1,4 +1,4 @@
-package io.github.lemcoder.aaudio;
+package io.github.lemcoder.aaudio.model;
 
 public enum AAudioResult {
     /**

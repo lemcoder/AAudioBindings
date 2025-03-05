@@ -1,4 +1,4 @@
-package io.github.lemcoder.aaudio;
+package io.github.lemcoder.aaudio.model;
 
 /**
  * These may be used with AAudioStreamBuilder_setSessionId().
