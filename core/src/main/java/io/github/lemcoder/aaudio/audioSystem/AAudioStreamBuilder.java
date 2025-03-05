@@ -1,91 +1,45 @@
 package io.github.lemcoder.aaudio.audioSystem;
 
-import static io.github.lemcoder.aaudio.audioSystem.NativeHelper.C_BOOL;
-import static io.github.lemcoder.aaudio.audioSystem.NativeHelper.C_INT;
-import static io.github.lemcoder.aaudio.audioSystem.NativeHelper.C_POINTER;
-import static io.github.lemcoder.aaudio.audioSystem.NativeHelper.LINKER;
-
-import com.v7878.foreign.Arena;
-import com.v7878.foreign.FunctionDescriptor;
-import com.v7878.foreign.MemorySegment;
-import com.v7878.foreign.SymbolLookup;
-import com.v7878.foreign.ValueLayout;
+import com.v7878.foreign.*;
+import io.github.lemcoder.aaudio.*;
+import io.github.lemcoder.aaudio.api.AAudioErrorCallbackApi;
+import io.github.lemcoder.aaudio.api.AAudioStreamDataCallbackApi;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
-import io.github.lemcoder.aaudio.AAudioAllowedCapturePolicy;
-import io.github.lemcoder.aaudio.AAudioAudioDirection;
-import io.github.lemcoder.aaudio.AAudioCallbackResult;
-import io.github.lemcoder.aaudio.AAudioChannelMask;
-import io.github.lemcoder.aaudio.AAudioContentType;
-import io.github.lemcoder.aaudio.AAudioFormat;
-import io.github.lemcoder.aaudio.AAudioInputPreset;
-import io.github.lemcoder.aaudio.AAudioPerformanceMode;
-import io.github.lemcoder.aaudio.AAudioResult;
-import io.github.lemcoder.aaudio.AAudioSessionId;
-import io.github.lemcoder.aaudio.AAudioSharingMode;
-import io.github.lemcoder.aaudio.AAudioSpatializationBehavior;
-import io.github.lemcoder.aaudio.AAudioStreamState;
-import io.github.lemcoder.aaudio.AAudioUsage;
-import io.github.lemcoder.aaudio.api.AAudioErrorCallbackApi;
-import io.github.lemcoder.aaudio.api.AAudioStreamDataCallbackApi;
+import static io.github.lemcoder.aaudio.audioSystem.NativeHelper.*;
+import static io.github.lemcoder.aaudio.audioSystem.NativeHelper.C_INT;
 
+public class AAudioStreamBuilder implements AutoCloseable {
+    private static final Arena lifetimeArena = Arena.ofShared();
+    private final MemorySegment nativeInstance;
 
-public class AAudio {
-
-    AAudio() {
-        // Should not be called directly
+    private AAudioStreamBuilder(MemorySegment nativeInstance) {
+        this.nativeInstance = nativeInstance;
     }
 
-    public static int AAUDIO_UNSPECIFIED = 0;
-
-    // ============================================================
-    // Audio System
-    // ============================================================
-
     /**
-     * The text is the ASCII symbol corresponding to the returnCode,
-     * or an English message saying the returnCode is unrecognized.
-     * This is intended for developers to use when debugging.
-     * It is not for display to users.
+     * Create a StreamBuilder that can be used to open a Stream.
+     * <p>
+     * The deviceId is initially unspecified, meaning that the current default device will be used.
+     * <p>
+     * The default direction is {AAudioAudioDirection.AAUDIO_DIRECTION_OUTPUT}.
+     * The default sharing mode is {AAudioSharingMode.AAUDIO_SHARING_MODE_SHARED}.
+     * The data format, samplesPerFrames and sampleRate are unspecified and will be
+     * chosen by the device when it is opened.
+     * <p>
+     * AAudioStreamBuilder_delete() must be called when you are done using the builder.
      * <p>
      * Available since API level 26.
      *
-     * @return pointer to a text representation of an AAudio result code.
+     * @return AAudioStreamBuilder instance
      */
-    public static String AAudioConvertResultToText(AAudioResult result) throws Throwable {
-        MemorySegment pResult = (MemorySegment) AAudio_convertResultToText.invokeExact(result.getValue());
-
-        return pResult.getString(0);
+    public static AAudioStreamBuilder create() throws RuntimeException {
+        MemorySegment nativeInstance = AAudioCreateStreamBuilder();
+        return new AAudioStreamBuilder(nativeInstance);
     }
-
-    private final static MethodHandle AAudio_convertResultToText = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudio_convertResultToText"),
-            FunctionDescriptor.of(C_POINTER, C_INT)
-    );
-
-    /**
-     * The text is the ASCII symbol corresponding to the stream state,
-     * or an English message saying the state is unrecognized.
-     * This is intended for developers to use when debugging.
-     * It is not for display to users.
-     * <p>
-     * Available since API level 26.
-     *
-     * @return pointer to a text representation of an AAudio state.
-     */
-    public static String AAudioConvertStreamStateToText(AAudioStreamState state) throws Throwable {
-        MemorySegment pResult = (MemorySegment) AAudio_convertStreamStateToText.invokeExact(state.getValue());
-
-        return pResult.getString(0);
-    }
-
-    private final static MethodHandle AAudio_convertStreamStateToText = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudio_convertStreamStateToText"),
-            FunctionDescriptor.of(C_POINTER, C_INT)
-    );
 
     // ============================================================
     // StreamBuilder
@@ -105,15 +59,17 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      */
-    public static MemorySegment AAudioCreateStreamBuilder() throws Throwable {
-        try (Arena scope = Arena.ofConfined()) {
-            MemorySegment ptr = scope.allocate(C_POINTER);
+    private static MemorySegment AAudioCreateStreamBuilder() throws RuntimeException {
+        try {
+            MemorySegment ptr = lifetimeArena.allocate(C_POINTER);
             int result = (int) AAudio_createStreamBuilder.invokeExact(ptr);
             if (result != AAudioResult.OK.getValue()) {
                 throw new RuntimeException("Failed to create AAudio stream builder: " + result);
             }
 
             return ptr.get(ValueLayout.ADDRESS, 0);
+        } catch (Throwable t) {
+            throw new RuntimeException("Error creating AAudioStreamBuilder", t);
         }
     }
 
@@ -134,16 +90,15 @@ public class AAudio {
      * AAudioStream_getDeviceId() after the stream is opened to
      * verify the actual ID.
      * <p>
-     * The default, if you do not call this function, is {@link #AAUDIO_UNSPECIFIED},
+     * The default, if you do not call this function, is {AAUDIO_UNSPECIFIED},
      * in which case the primary device will be used.
      * <p>
      * Available since API level 26.
      *
-     * @param builder  reference provided by AAudio_createStreamBuilder()
-     * @param deviceId device identifier or {@link #AAUDIO_UNSPECIFIED}
+     * @param deviceId device identifier or {AAUDIO_UNSPECIFIED}
      */
-    public static void AAudioStreamBuilderSetDeviceId(MemorySegment builder, int deviceId) throws Throwable {
-        AAudioStreamBuilder_setDeviceId.invokeExact(builder, deviceId);
+    public void setDeviceId(int deviceId) throws Throwable {
+        AAudioStreamBuilder_setDeviceId.invokeExact(nativeInstance, deviceId);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setDeviceId = LINKER.downcallHandle(
@@ -165,14 +120,13 @@ public class AAudio {
      * <p>
      * Available since API level 31.
      *
-     * @param builder     reference provided by AAudio_createStreamBuilder()
      * @param packageName packageName of the calling app.
      */
-    public static void AAudioStreamBuilderSetPackageName(MemorySegment builder, String packageName) throws Throwable {
+    public void setPackageName(String packageName) throws Throwable {
         try (Arena scope = Arena.ofConfined()) {
             MemorySegment pPackageName = scope.allocateFrom(packageName);
 
-            AAudioStreamBuilder_setPackageName.invokeExact(builder, pPackageName);
+            AAudioStreamBuilder_setPackageName.invokeExact(nativeInstance, pPackageName);
         }
     }
 
@@ -190,14 +144,13 @@ public class AAudio {
      * <p>
      * Available since API level 31.
      *
-     * @param builder        reference provided by AAudio_createStreamBuilder()
      * @param attributionTag attributionTag of the calling context.
      */
-    public static void AAudioStreamBuilderSetAttributionTag(MemorySegment builder, String attributionTag) throws Throwable {
+    public void setAttributionTag(String attributionTag) throws Throwable {
         try (Arena scope = Arena.ofConfined()) {
             MemorySegment pAttributionTag = scope.allocateFrom(attributionTag);
 
-            AAudioStreamBuilder_setAttributionTag.invokeExact(builder, pAttributionTag);
+            AAudioStreamBuilder_setAttributionTag.invokeExact(nativeInstance, pAttributionTag);
         }
     }
 
@@ -209,7 +162,7 @@ public class AAudio {
     /**
      * Request a sample rate in Hertz.
      * <p>
-     * The default, if you do not call this function, is {@link #AAUDIO_UNSPECIFIED}.
+     * The default, if you do not call this function, is {AAUDIO_UNSPECIFIED}.
      * An optimal value will then be chosen when the stream is opened.
      * After opening a stream with an unspecified value, the application must
      * query for the actual value, which may vary by device.
@@ -219,11 +172,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder    reference provided by AAudio_createStreamBuilder()
      * @param sampleRate frames per second. Common rates include 44100 and 48000 Hz.
      */
-    public static void AAudioStreamBuilderSetSampleRate(MemorySegment builder, int sampleRate) throws Throwable {
-        AAudioStreamBuilder_setSampleRate.invokeExact(builder, sampleRate);
+    public void setSampleRate(int sampleRate) throws Throwable {
+        AAudioStreamBuilder_setSampleRate.invokeExact(nativeInstance, sampleRate);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setSampleRate = LINKER.downcallHandle(
@@ -234,7 +186,7 @@ public class AAudio {
     /**
      * Request a number of channels for the stream.
      * <p>
-     * The default, if you do not call this function, is {@link #AAUDIO_UNSPECIFIED}.
+     * The default, if you do not call this function, is {AAUDIO_UNSPECIFIED}.
      * An optimal value will then be chosen when the stream is opened.
      * After opening a stream with an unspecified value, the application must
      * query for the actual value, which may vary by device.
@@ -255,11 +207,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder      reference provided by AAudio_createStreamBuilder()
      * @param channelCount Number of channels desired.
      */
-    public static void AAudioStreamBuilderSetChannelCount(MemorySegment builder, int channelCount) throws Throwable {
-        AAudioStreamBuilder_setChannelCount.invokeExact(builder, channelCount);
+    public void setChannelCount(int channelCount) throws Throwable {
+        AAudioStreamBuilder_setChannelCount.invokeExact(nativeInstance, channelCount);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setChannelCount = LINKER.downcallHandle(
@@ -271,12 +222,11 @@ public class AAudio {
      * Identical to AAudioStreamBuilder_setChannelCount().
      * Available since API level 26.
      *
-     * @param builder         reference provided by AAudio_createStreamBuilder()
      * @param samplesPerFrame Number of samples in a frame.
      */
     @Deprecated()
-    public static void AAudioStreamBuilderSetSamplesPerFrame(MemorySegment builder, int samplesPerFrame) throws Throwable {
-        AAudioStreamBuilder_setSamplesPerFrame.invokeExact(builder, samplesPerFrame);
+    public void setSamplesPerFrame(int samplesPerFrame) throws Throwable {
+        AAudioStreamBuilder_setSamplesPerFrame.invokeExact(nativeInstance, samplesPerFrame);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setSamplesPerFrame = LINKER.downcallHandle(
@@ -287,7 +237,7 @@ public class AAudio {
     /**
      * Request a sample data format, for example {AAudioFormat.AAUDIO_FORMAT_PCM_I16}.
      * <p>
-     * The default, if you do not call this function, is {@link #AAUDIO_UNSPECIFIED}.
+     * The default, if you do not call this function, is {AAUDIO_UNSPECIFIED}.
      * An optimal value will then be chosen when the stream is opened.
      * After opening a stream with an unspecified value, the application must
      * query for the actual value, which may vary by device.
@@ -297,11 +247,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder reference provided by AAudio_createStreamBuilder()
      * @param format  common formats are {AAudioFormat.AAUDIO_FORMAT_PCM_FLOAT} and {AAudioFormat.AAUDIO_FORMAT_PCM_I16}.
      */
-    public static void AAudioStreamBuilderSetFormat(MemorySegment builder, AAudioFormat format) throws Throwable {
-        AAudioStreamBuilder_setFormat.invokeExact(builder, format.getValue());
+    public void setFormat(AAudioFormat format) throws Throwable {
+        AAudioStreamBuilder_setFormat.invokeExact(nativeInstance, format.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setFormat = LINKER.downcallHandle(
@@ -319,11 +268,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder     reference provided by AAudio_createStreamBuilder()
      * @param sharingMode {AAUDIO_SHARING_MODE_SHARED} or {AAUDIO_SHARING_MODE_EXCLUSIVE}
      */
-    public static void AAudioStreamBuilderSetSharingMode(MemorySegment builder, AAudioSharingMode sharingMode) throws Throwable {
-        AAudioStreamBuilder_setSharingMode.invokeExact(builder, sharingMode.getValue());
+    public void setSharingMode(AAudioSharingMode sharingMode) throws Throwable {
+        AAudioStreamBuilder_setSharingMode.invokeExact(nativeInstance, sharingMode.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setSharingMode = LINKER.downcallHandle(
@@ -338,11 +286,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder   reference provided by AAudio_createStreamBuilder()
      * @param direction {AAUDIO_DIRECTION_OUTPUT} or {AAUDIO_DIRECTION_INPUT}
      */
-    public static void AAudioStreamBuilderSetDirection(MemorySegment builder, AAudioAudioDirection direction) throws Throwable {
-        AAudioStreamBuilder_setDirection.invokeExact(builder, direction.getValue());
+    public void setDirection(AAudioAudioDirection direction) throws Throwable {
+        AAudioStreamBuilder_setDirection.invokeExact(nativeInstance, direction.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setDirection = LINKER.downcallHandle(
@@ -354,15 +301,14 @@ public class AAudio {
      * Set the requested buffer capacity in frames.
      * The final AAudioStream capacity may differ, but will probably be at least this big.
      * <p>
-     * The default, if you do not call this function, is {@link #AAUDIO_UNSPECIFIED}.
+     * The default, if you do not call this function, is {AAUDIO_UNSPECIFIED}.
      * <p>
      * Available since API level 26.
      *
-     * @param builder   reference provided by AAudio_createStreamBuilder()
-     * @param numFrames the desired buffer capacity in frames or {@link #AAUDIO_UNSPECIFIED}
+     * @param numFrames the desired buffer capacity in frames or {AAUDIO_UNSPECIFIED}
      */
-    public static void AAudioStreamBuilderSetBufferCapacityInFrames(MemorySegment builder, int numFrames) throws Throwable {
-        AAudioStreamBuilder_setBufferCapacityInFrames.invokeExact(builder, numFrames);
+    public void setBufferCapacityInFrames(int numFrames) throws Throwable {
+        AAudioStreamBuilder_setBufferCapacityInFrames.invokeExact(nativeInstance, numFrames);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setBufferCapacityInFrames = LINKER.downcallHandle(
@@ -384,11 +330,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder reference provided by AAudio_createStreamBuilder()
      * @param mode    the desired performance mode, eg. {AAUDIO_PERFORMANCE_MODE_LOW_LATENCY}
      */
-    public static void AAudioStreamBuilderSetPerformanceMode(MemorySegment builder, AAudioPerformanceMode mode) throws Throwable {
-        AAudioStreamBuilder_setPerformanceMode.invokeExact(builder, mode.getValue());
+    public void setPerformanceMode(AAudioPerformanceMode mode) throws Throwable {
+        AAudioStreamBuilder_setPerformanceMode.invokeExact(nativeInstance, mode.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setPerformanceMode = LINKER.downcallHandle(
@@ -407,11 +352,10 @@ public class AAudio {
      * <p>
      * Available since API level 28.
      *
-     * @param builder reference provided by AAudio_createStreamBuilder()
      * @param usage   the desired usage, eg. {AAUDIO_USAGE_GAME}
      */
-    public static void AAudioStreamBuilderSetUsage(MemorySegment builder, AAudioUsage usage) throws Throwable {
-        AAudioStreamBuilder_setUsage.invokeExact(builder, usage.getValue());
+    public void setUsage(AAudioUsage usage) throws Throwable {
+        AAudioStreamBuilder_setUsage.invokeExact(nativeInstance, usage.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setUsage = LINKER.downcallHandle(
@@ -430,11 +374,10 @@ public class AAudio {
      * <p>
      * Available since API level 28.
      *
-     * @param builder     reference provided by AAudio_createStreamBuilder()
      * @param contentType the type of audio data, eg. {AAUDIO_CONTENT_TYPE_SPEECH}
      */
-    public static void AAudioStreamBuilderSetContentType(MemorySegment builder, AAudioContentType contentType) throws Throwable {
-        AAudioStreamBuilder_setContentType.invokeExact(builder, contentType.getValue());
+    public void setContentType(AAudioContentType contentType) throws Throwable {
+        AAudioStreamBuilder_setContentType.invokeExact(nativeInstance, contentType.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setContentType = LINKER.downcallHandle(
@@ -450,11 +393,10 @@ public class AAudio {
      * <p>
      * Available since API level 32.
      *
-     * @param builder                reference provided by AAudio_createStreamBuilder()
      * @param spatializationBehavior the desired behavior with regards to spatialization, eg.{AAUDIO_SPATIALIZATION_BEHAVIOR_AUTO}
      */
-    public static void AAudioStreamBuilderSetSpatializationBehavior(MemorySegment builder, AAudioSpatializationBehavior spatializationBehavior) throws Throwable {
-        AAudioStreamBuilder_setSpatializationBehavior.invokeExact(builder, spatializationBehavior.getValue());
+    public void setSpatializationBehavior(AAudioSpatializationBehavior spatializationBehavior) throws Throwable {
+        AAudioStreamBuilder_setSpatializationBehavior.invokeExact(nativeInstance, spatializationBehavior.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setSpatializationBehavior = LINKER.downcallHandle(
@@ -471,12 +413,11 @@ public class AAudio {
      * <p>
      * Available since API level 32.
      *
-     * @param builder       reference provided by AAudio_createStreamBuilder()
      * @param isSpatialized true if the content is already processed for binaural or transaural spatial
      *                      rendering, false otherwise.
      */
-    public static void AAudioStreamBuilderSetIsContentSpatialized(MemorySegment builder, boolean isSpatialized) throws Throwable {
-        AAudioStreamBuilder_setIsContentSpatialized.invokeExact(builder, isSpatialized);
+    public void setIsContentSpatialized(boolean isSpatialized) throws Throwable {
+        AAudioStreamBuilder_setIsContentSpatialized.invokeExact(nativeInstance, isSpatialized);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setIsContentSpatialized = LINKER.downcallHandle(
@@ -498,11 +439,10 @@ public class AAudio {
      * <p>
      * Available since API level 28.
      *
-     * @param builder     reference provided by AAudio_createStreamBuilder()
      * @param inputPreset the desired configuration for recording
      */
-    public static void AAudioStreamBuilderSetInputPreset(MemorySegment builder, AAudioInputPreset inputPreset) throws Throwable {
-        AAudioStreamBuilder_setInputPreset.invokeExact(builder, inputPreset.getValue());
+    public void setInputPreset(AAudioInputPreset inputPreset) throws Throwable {
+        AAudioStreamBuilder_setInputPreset.invokeExact(nativeInstance, inputPreset.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setInputPreset = LINKER.downcallHandle(
@@ -522,11 +462,10 @@ public class AAudio {
      * <p>
      * Available since API level 29.
      *
-     * @param builder       reference provided by AAudio_createStreamBuilder()
      * @param capturePolicy the desired level of opt-out from being captured.
      */
-    public static void AAudioStreamBuilderSetAllowedCapturePolicy(MemorySegment builder, AAudioAllowedCapturePolicy capturePolicy) throws Throwable {
-        AAudioStreamBuilder_setAllowedCapturePolicy.invokeExact(builder, capturePolicy.getValue());
+    public void setAllowedCapturePolicy(AAudioAllowedCapturePolicy capturePolicy) throws Throwable {
+        AAudioStreamBuilder_setAllowedCapturePolicy.invokeExact(nativeInstance, capturePolicy.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setAllowedCapturePolicy = LINKER.downcallHandle(
@@ -559,11 +498,10 @@ public class AAudio {
      * <p>
      * Available since API level 28.
      *
-     * @param builder   reference provided by AAudio_createStreamBuilder()
      * @param sessionId an allocated sessionID or {AAUDIO_SESSION_ID_ALLOCATE}
      */
-    public static void AAudioStreamBuilderSetAllowedCapturePolicy(MemorySegment builder, AAudioSessionId sessionId) throws Throwable {
-        AAudioStreamBuilder_setSessionId.invokeExact(builder, sessionId.getValue());
+    public void setSessionId(AAudioSessionId sessionId) throws Throwable {
+        AAudioStreamBuilder_setSessionId.invokeExact(nativeInstance, sessionId.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setSessionId = LINKER.downcallHandle(
@@ -586,12 +524,11 @@ public class AAudio {
      * <p>
      * Added in API level 30.
      *
-     * @param builder          reference provided by AAudio_createStreamBuilder()
      * @param privacySensitive true if capture from this stream must be marked as privacy sensitive,
      *                         false otherwise.
      */
-    public static void AAudioStreamBuilderSetAllowedCapturePolicy(MemorySegment builder, boolean privacySensitive) throws Throwable {
-        AAudioStreamBuilder_setPrivacySensitive.invokeExact(builder, privacySensitive);
+    public void setPrivacySensitive(boolean privacySensitive) throws Throwable {
+        AAudioStreamBuilder_setPrivacySensitive.invokeExact(nativeInstance, privacySensitive);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setPrivacySensitive = LINKER.downcallHandle(
@@ -620,10 +557,9 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder  reference provided by AAudio_createStreamBuilder()
      * @param callback a function that will process audio data.
      */
-    public static void AAudioStreamBuilderSetDataCallback(Arena lifetime, MemorySegment builder, AAudioStreamDataCallbackApi callback) throws Throwable {
+    public void setDataCallback(AAudioStreamDataCallbackApi callback) throws Throwable {
         // Create a stub as a native symbol to be passed into native function.
         AAudioStreamDataCallbackInternal callbackInternal = (stream, userData, audioData, numFrames) -> {
             // TODO: All memory segments will be zero size because there is nowhere to get this information from. It is the same as a pointer in C
@@ -652,9 +588,9 @@ public class AAudio {
             return AAudioCallbackResult.CONTINUE.getValue();
         };
 
-        MemorySegment pCallback = createDataCallbackPtr(lifetime, callbackInternal);
+        MemorySegment pCallback = createDataCallbackPtr(lifetimeArena, callbackInternal);
 
-        AAudioStreamBuilder_setDataCallback.invokeExact(builder, pCallback, MemorySegment.NULL);
+        AAudioStreamBuilder_setDataCallback.invokeExact(nativeInstance, pCallback, MemorySegment.NULL);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setDataCallback = LINKER.downcallHandle(
@@ -696,7 +632,7 @@ public class AAudio {
      * Set the requested data callback buffer size in frames.
      * See {AAudioStream_dataCallback}.
      * <p>
-     * The default, if you do not call this function, is {@link #AAUDIO_UNSPECIFIED}.
+     * The default, if you do not call this function, is {AAUDIO_UNSPECIFIED}.
      * <p>
      * For the lowest possible latency, do not call this function. AAudio will then
      * call the dataProc callback function with whatever size is optimal.
@@ -714,11 +650,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder   reference provided by AAudio_createStreamBuilder()
-     * @param numFrames the desired buffer size in frames or {@link #AAUDIO_UNSPECIFIED}
+     * @param numFrames the desired buffer size in frames or {AAUDIO_UNSPECIFIED}
      */
-    public static void AAudioStreamBuilderSetFramesPerDataCallback(MemorySegment builder, int numFrames) throws Throwable {
-        AAudioStreamBuilder_setFramesPerDataCallback.invokeExact(builder, numFrames);
+    public void setFramesPerDataCallback(int numFrames) throws Throwable {
+        AAudioStreamBuilder_setFramesPerDataCallback.invokeExact(nativeInstance, numFrames);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setFramesPerDataCallback = LINKER.downcallHandle(
@@ -744,10 +679,9 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder  reference provided by AAudio_createStreamBuilder()
      * @param callback pointer to a function that will be called if an error occurs.
      */
-    public static void AAudioStreamBuilderSetErrorCallback(Arena lifetime, MemorySegment builder, AAudioErrorCallbackApi callback) throws Throwable {
+    public void setErrorCallback(Arena lifetime, AAudioErrorCallbackApi callback) throws Throwable {
         // Create a stub as a native symbol to be passed into native function.
         AAudioErrorCallbackInternal callbackInternal = (stream, userData, error) -> {
             callback.onError(AAudioResult.fromValue(error));
@@ -755,7 +689,7 @@ public class AAudio {
 
         MemorySegment pCallback = createErrorCallbackPtr(lifetime, callbackInternal);
 
-        AAudioStreamBuilder_setErrorCallback.invokeExact(builder, pCallback, MemorySegment.NULL);
+        AAudioStreamBuilder_setErrorCallback.invokeExact(nativeInstance, pCallback, MemorySegment.NULL);
     }
 
     private final static MethodHandle AAudioStreamBuilder_setErrorCallback = LINKER.downcallHandle(
@@ -799,20 +733,22 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder reference provided by AAudio_createStreamBuilder()
-     * @return pointer to a variable to receive the new stream reference
+     * @return AAudioStream
      * @throws RuntimeException if the stream could not be opened
      */
-    public static MemorySegment AAudioStreamBuilderOpenStream(MemorySegment builder) throws Throwable {
-        try (Arena scope = Arena.ofConfined()) {
+    public AAudioStream openStream() throws Throwable {
+        try {
             // allocate a pointer to store the stream
-            MemorySegment ptr = scope.allocate(C_POINTER);
+            MemorySegment ptr = lifetimeArena.allocate(C_POINTER);
 
-            int result = (int) AAudioStreamBuilder_openStream.invokeExact(builder, ptr);
+            int result = (int) AAudioStreamBuilder_openStream.invokeExact(nativeInstance, ptr);
             if (result != AAudioResult.OK.getValue()) {
                 throw new RuntimeException("Failed to open stream: " + result);
             }
-            return ptr.get(ValueLayout.ADDRESS, 0);
+
+            return new AAudioStream(ptr.get(ValueLayout.ADDRESS, 0));
+        } catch (Throwable t) {
+            throw new RuntimeException("Error opening AAudioStream", t);
         }
     }
 
@@ -826,11 +762,10 @@ public class AAudio {
      * <p>
      * Available since API level 26.
      *
-     * @param builder reference provided by AAudio_createStreamBuilder()
      * @return {AAUDIO_OK} or a negative error.
      */
-    public int AAudioStreamBuilderDelete(MemorySegment builder) throws Throwable {
-        return (int) AAudioStreamBuilder_delete.invokeExact(builder);
+    public int delete() throws Throwable {
+        return (int) AAudioStreamBuilder_delete.invokeExact(nativeInstance);
     }
 
     private final static MethodHandle AAudioStreamBuilder_delete = LINKER.downcallHandle(
@@ -841,7 +776,7 @@ public class AAudio {
     /**
      * Set audio channel mask for the stream.
      * <p>
-     * The default, if you do not call this function, is {@link #AAUDIO_UNSPECIFIED}.
+     * The default, if you do not call this function, is {0}.
      * If both channel mask and count are not set, then stereo will then be chosen when the
      * stream is opened.
      * After opening a stream with an unspecified value, the application must query for the
@@ -858,11 +793,10 @@ public class AAudio {
      * <p>
      * Available since API level 32.
      *
-     * @param builder     reference provided by AAudio_createStreamBuilder()
      * @param channelMask Audio channel mask desired.
      */
-    public void AAudioStreamBuilder_setChannelMask(MemorySegment builder, AAudioChannelMask channelMask) throws Throwable {
-        AAudioStreamBuilder_setChannelMask.invokeExact(builder, channelMask.getValue());
+    public void setChannelMask(AAudioChannelMask channelMask) throws Throwable {
+        AAudioStreamBuilder_setChannelMask.invokeExact(nativeInstance, channelMask.getValue());
     }
 
     private final static MethodHandle AAudioStreamBuilder_setChannelMask = LINKER.downcallHandle(
@@ -870,133 +804,8 @@ public class AAudio {
             FunctionDescriptor.ofVoid(C_POINTER, C_INT)
     );
 
-    // ============================================================
-    // Stream Control
-    // ============================================================
-
-    // <------------------------------------------------------------->
-    private final static MethodHandle AAudioStream_getFormat = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getFormat"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static AAudioFormat AAudioStreamGetFormat(MemorySegment stream) throws Throwable {
-        return AAudioFormat.fromValue((int) AAudioStream_getFormat.invokeExact(stream));
-    }
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-    private final static MethodHandle AAudioStream_getChannelCount = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getChannelCount"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static int AAudioStreamGetChannelCount(MemorySegment stream) throws Throwable {
-        return (int) AAudioStream_getChannelCount.invokeExact(stream);
-    }
-
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-
-    private final static MethodHandle AAudioStream_getHardwareChannelCount = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getHardwareChannelCount"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static int AAudioStreamGetHardwareChannelCount(MemorySegment stream) throws Throwable {
-        return (int) AAudioStream_getHardwareChannelCount.invokeExact(stream);
-    }
-
-
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-
-    private final static MethodHandle AAudioStream_getDeviceId = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getDeviceId"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static int AAudioStreamGetDeviceId(MemorySegment stream) throws Throwable {
-        return (int) AAudioStream_getDeviceId.invokeExact(stream);
-    }
-
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-
-    private final static MethodHandle AAudioStream_getDirection = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getDirection"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static AAudioAudioDirection AAudioStreamGetDirection(MemorySegment stream) throws Throwable {
-        return AAudioAudioDirection.fromValue((int) AAudioStream_getDirection.invokeExact(stream));
-    }
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-
-    private final static MethodHandle AAudioStream_getPerformanceMode = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getPerformanceMode"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static AAudioPerformanceMode AAudioStreamGetPerformanceMode(MemorySegment stream) throws Throwable {
-        return AAudioPerformanceMode.fromValue((int) AAudioStream_getPerformanceMode.invokeExact(stream));
-    }
-
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-
-    private final static MethodHandle AAudioStream_getSampleRate = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getSampleRate"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static int AAudioStreamGetSampleRate(MemorySegment stream) throws Throwable {
-        return (int) AAudioStream_getSampleRate.invokeExact(stream);
-    }
-
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-
-    private final static MethodHandle AAudioStream_getHardwareSampleRate = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getHardwareSampleRate"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static int AAudioStreamGetHardwareSampleRate(MemorySegment stream) throws Throwable {
-        return (int) AAudioStream_getHardwareSampleRate.invokeExact(stream);
-    }
-
-    // <------------------------------------------------------------->
-
-    // <------------------------------------------------------------->
-
-    private final static MethodHandle AAudioStream_getState = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_getState"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static AAudioStreamState AAudioStreamGetState(MemorySegment stream) throws Throwable {
-        return AAudioStreamState.fromValue((int) AAudioStream_getState.invokeExact(stream));
-    }
-
-    // ============================================================
-    // Stream Control
-    // ============================================================
-
-
-    private final static MethodHandle AAudioStream_requestStart = LINKER.downcallHandle(
-            SymbolLookup.loaderLookup().findOrThrow("AAudioStream_requestStart"),
-            FunctionDescriptor.of(C_INT, C_POINTER)
-    );
-
-    public static AAudioResult AAudioStreamRequestStart(MemorySegment stream) throws Throwable {
-        return AAudioResult.fromValue((int) AAudioStream_requestStart.invokeExact(stream));
+    @Override
+    public void close() throws Exception {
+        lifetimeArena.close();
     }
 }

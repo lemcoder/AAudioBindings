@@ -23,5 +23,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'MikroAALL'
+rootProject.name = 'AAudioBindings'
 include 'core'
