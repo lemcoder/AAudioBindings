@@ -463,7 +463,9 @@ public class AAudioStreamBuilder implements AutoCloseable {
                 return AAudioCallbackResult.CONTINUE.getValue(); // Stop if buffer is unusable
             }
 
-            byte[] data = callback.onData(numFrames);
+            byte[] data = callback.onOutputReady(numFrames);
+            callback.onInputReady(audioData.asByteBuffer().array(), numFrames); // FIXME
+
             MemorySegment.copy(data, 0, audioData, ValueLayout.JAVA_BYTE, 0, data.length);
 
             return AAudioCallbackResult.CONTINUE.getValue();

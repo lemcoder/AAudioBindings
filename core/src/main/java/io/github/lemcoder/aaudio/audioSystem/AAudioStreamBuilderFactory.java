@@ -20,7 +20,7 @@ public class AAudioStreamBuilderFactory {
      *
      * @return AAudioStreamBuilder instance
      */
-    public static AAudioStreamBuilder createBuilder() throws Exception {
+    public static AAudioStreamBuilder createStreamBuilder() throws Exception {
         Arena lifetimeArena = Arena.ofShared();
         return new AAudioStreamBuilder(lifetimeArena);
     }
